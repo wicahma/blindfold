@@ -2,6 +2,10 @@
 
 Keep secrets out of your LLM's context window — without breaking the agent.
 
+Works on **any agent harness**: Hermes, Claude Code, Codex CLI, Gemini/Antigravity,
+Cline, Cursor, Windsurf, Amazon Q CLI, Open WebUI, ChatGPT Desktop — via one
+universal gateway, thin per-harness adapters, and one standardized probe suite.
+
 **Problem:** agent harnesses scan tool output for credential *patterns* (vendor
 prefixes like `sk-`, `xoxb-`, `eyJh`). Two leaks survive that approach:
 
@@ -39,7 +43,36 @@ on every model-facing surface, in any form.
 "[REDACTED]"                     # the transform is caught too
 ```
 
+## Architecture
+
+```
+core/                    harness-agnostic. No harness imports. Bug = one fix.
+  discovery (.env*/env) + transforms (base64/hex/reversed/url) + name-gate
+adapters/                THIN. Translate a harness API into the core contract.
+  hermes/                Hermes plugin (hooks wired at session + tool boundary)
+  gateway/               UNIVERSAL DEFAULT — OpenAI-compatible reverse proxy
+                         (LiteLLM CustomLogger + zero-dep stdlib server).
+                         6/7 CLI harnesses + Claude Desktop covered by one
+                         base-URL override.
+  hooks/generic_block.py block-only shim for Claude Code, Codex CLI, Cline,
+                         Cursor, Windsurf, Q CLI (JSON stdin → exit 2)
+  qcli/hook.py           Amazon Q CLI (the one harness without base-URL)
+  openwebui/filter.py    Filter Function: inlet/outlet, toggle locked False
+  mcp/server.py          COMPANION ONLY (scan + probe tools; cannot intercept)
+tests/
+  core/  adapters/       unit + adapter-contract tests
+  probe_suite/run.py     THE gate: same 5-check suite, every adapter
+  e2e/stress/mid/sweep   original Hermes regression suites
+```
+
+**Enforcement matrix (verified Sept 2026, see docs/ARCHITECTURE.md):**
+masking = gateway (any harness with a base-URL override). Blocking =
+`generic_block.py`. Discovery/probe from chat = MCP companion. An adapter
+ships only when the full probe-suite is green against it.
+
 ## Install
+
+**Hermes** (drop-in plugin):
 
 ```bash
 git clone https://github.com/wicahma/blindfold ~/.hermes/plugins/blindfold
@@ -47,11 +80,27 @@ hermes config set plugins.enabled '["bots-dashboard","superpowers","blindfold"]'
 hermes gateway restart     # from a shell OUTSIDE the running gateway
 ```
 
-That's it. The next session boundary (`/new` or `/reset`) triggers the first scan.
-`pre_tool_call` fires on every file-reading tool, so secrets created mid-session
-are picked up without a restart.
+**Any OpenAI-compatible harness** (gateway — one env var / config field):
 
-No dependencies beyond the Python stdlib and Hermes Agent itself.
+```bash
+python3 -m blindfold.adapters.gateway.server --port 8080 --upstream https://api.openai.com
+# then point the harness's base URL at http://127.0.0.1:8080/v1
+# LiteLLM users: add the BlindfoldHandler INSTANCE to litellm_settings.callbacks
+```
+
+**Block-only hook** (Claude Code / Codex / Cline / Cursor / Windsurf / Q CLI):
+register `adapters/hooks/generic_block.py` in the harness's hook config
+(paths in the module docstring), with `BLINDFOLD_VALUES` populated once from
+`core.discover_all()` + `core.transforms_of()`.
+
+**Open WebUI**: import `adapters/openwebui/filter.py` as a Function (Admin
+Panel → Functions). Toggle is locked off — users cannot disable it.
+
+**ChatGPT Desktop** (no other surface): MCP companion — run
+`adapters/mcp/server.py` over stdio; gives `blindfold_scan` + `blindfold_probe`.
+
+No dependencies beyond the Python stdlib (LiteLLM optional for the proxy-hook
+variant).
 
 ## How it works
 
@@ -103,14 +152,20 @@ For unknown-secret discovery, combine with a scanner like `gitleaks` or
 
 ## Files
 
-| File | Role |
+| Path | Role |
 |---|---|
-| `blindfold.py` | Plugin: scan, register, hooks |
-| `blindfold-core.py` | Standalone slot-machine prototype (slot refs, type-preserving redact, exec bridge) |
-| `plugin.yaml` | Hermes plugin manifest |
+| `core/__init__.py` | Harness-agnostic contract: discovery, transforms, name-gate |
+| `adapters/hermes/` | Hermes plugin (scan, register, session + tool hooks) |
+| `adapters/gateway/` | Universal proxy: `mask.py`, `litellm_hook.py`, `build.py`, `server.py` |
+| `adapters/hooks/generic_block.py` | Block-only shim, 6 harnesses |
+| `adapters/qcli/hook.py` | Amazon Q CLI block hook |
+| `adapters/openwebui/filter.py` | Open WebUI Filter Function |
+| `adapters/mcp/server.py` | MCP companion (scan + probe) |
+| `tests/probe_suite/run.py` | Cross-adapter gate: leak/evict/hard-boundary/spoof |
 | `tests/e2e_hermes.py` | End-to-end against real Hermes discovery + real `.env` |
 | `tests/stress_threshold.py` | Bucket-threshold regression (300 secrets, 0 evicted) |
 | `tests/test_mid_session.py` | Mid-session secret pickup via `pre_tool_call` |
+| `blindfold-core.py` | Standalone slot-machine prototype (slot refs, type-preserving redact, exec bridge) |
 
 ## Documentation
 
