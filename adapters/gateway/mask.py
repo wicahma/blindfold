@@ -34,17 +34,13 @@ def _mask_any(obj: Any, values: list[str]) -> Any:
     return obj
 
 
-def mask_messages(body: dict, values: list[str]) -> dict:
-    """Scrub secret values from an OpenAI-compatible request body."""
-    if not isinstance(body, dict):
-        return body
+def mask_messages(body: dict | str, values: list[str]) -> dict | str:
+    """Scrub secret values from an OpenAI-compatible request body (or bare string)."""
     return _mask_any(body, values)
 
 
-def mask_response(resp: dict, values: list[str]) -> dict:
-    """Scrub secret values from an OpenAI-compatible response body."""
-    if not isinstance(resp, dict):
-        return resp
+def mask_response(resp: dict | str, values: list[str]) -> dict | str:
+    """Scrub secret values from an OpenAI-compatible response body (or bare string)."""
     return _mask_any(resp, values)
 
 

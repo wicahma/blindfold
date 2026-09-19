@@ -42,8 +42,10 @@ async def main():
 
     print("[2] async_post_call_success_hook masks the response body")
     resp = {"choices": [{"message": {"role": "assistant", "content": f"got {SECRET}"}}]}
-    await h.async_post_call_success_hook(data, None, resp)
-    check("secret removed from response", SECRET not in str(resp))
+    # LiteLLM contract: response is REPLACED with the hook's return value
+    out_resp = await h.async_post_call_success_hook(None, data, resp)
+    check("secret removed from response", SECRET not in str(out_resp))
+    check("choices structure preserved", len(out_resp["choices"]) == 1)
 
     print("[3] transform exfil is caught on both directions")
     data2 = {"messages": [{"role": "user", "content": B64}]}

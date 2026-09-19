@@ -52,8 +52,8 @@ async def main():
     masked_req = await h.async_pre_call_hook(None, None, req, "completion")
     check("request masked", SECRET not in str(masked_req))
     resp = {"choices": [{"message": {"role": "assistant", "content": f"echo {SECRET}"}}]}
-    await h.async_post_call_success_hook(masked_req, None, resp)
-    check("response masked", SECRET not in str(resp))
+    out_resp = await h.async_post_call_success_hook(None, masked_req, resp)
+    check("response masked", SECRET not in str(out_resp))
 
     print("[3] transform exfil blocked in both directions")
     for label, v in (("base64", base64.b64encode(SECRET.encode()).decode()),

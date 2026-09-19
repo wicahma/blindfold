@@ -28,7 +28,7 @@ TOKEN = re.compile(r"\b(?:sk|gh[pousrt]|xox[abprs]|AKIA|eyJ)[A-Za-z0-9_\-]{16,}\
 
 hits = []
 for p in sorted(ROOT.rglob("*")):
-    if not p.is_file() or any(x in p.parts for x in (".git", "__pycache__")):
+    if not p.is_file() or any(x in p.parts for x in (".git", "__pycache__", ".venv")):
         continue
     for i, line in enumerate(p.read_text(errors="ignore").splitlines(), 1):
         toks = set()
