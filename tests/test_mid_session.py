@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, "/home/diama/.hermes/hermes-agent")
 sys.path.insert(0, "/home/diama/.hermes/plugins")
 import agent.redact as redact  # noqa: E402
-import blindfold  # noqa: E402
+from blindfold.adapters.hermes import register_secrets, scan, _pre_tool_call  # noqa: E402
 
 NEW = "FRESH_LEAK_TEST_abcdef1234567890"
 
@@ -23,7 +23,7 @@ leak = redact.redact_sensitive_text(NEW) == NEW
 print(f"1. before any scan, raw leaks: {leak}  (expect True)")
 redact.clear_vault_redaction_values()
 
-blindfold._pre_tool_call(tool="read_file", args_raw=str(tmp / ".env"))
+_pre_tool_call(tool="read_file", args_raw=str(tmp / ".env"))
 raw_ok = redact.redact_sensitive_text(NEW) != NEW
 b64_ok = redact.redact_sensitive_text(base64.b64encode(NEW.encode()).decode()) != base64.b64encode(NEW.encode()).decode()
 rev_ok = redact.redact_sensitive_text(NEW[::-1]) != NEW[::-1]
@@ -31,7 +31,7 @@ print(f"2. after pre_tool_call(read_file): raw caught={raw_ok} base64 caught={b6
 redact.clear_vault_redaction_values()
 
 redact.clear_vault_redaction_values()
-blindfold._pre_tool_call(tool="web_search", args_raw="x")
+_pre_tool_call(tool="web_search", args_raw="x")
 print(f"3. web_search skipped rescan, still leaks: {redact.redact_sensitive_text(NEW) == NEW}  (expect True)")
 
 redact.clear_vault_redaction_values()

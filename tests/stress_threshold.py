@@ -8,14 +8,14 @@ from pathlib import Path
 sys.path.insert(0, "/home/diama/.hermes/hermes-agent")
 sys.path.insert(0, "/home/diama/.hermes/plugins")
 import agent.redact as redact  # noqa: E402
-import blindfold  # noqa: E402
+from blindfold.adapters.hermes import register_secrets, scan, _pre_tool_call  # noqa: E402
 
 redact.clear_vault_redaction_values()
 orig = redact._VAULT_REDACTION_MAX_PER_PROFILE
 
 N = 300
 secrets = {f"FAKE_KEY_{i:04d}": f"secret-value-{i:04d}-padding-xxxxxxxxxxxxx" for i in range(N)}
-n = blindfold.register_secrets(secrets)
+n = register_secrets(secrets)
 print(f"registered {n}/{N}")
 print(f"threshold: {orig} -> {redact._VAULT_REDACTION_MAX_PER_PROFILE}")
 
