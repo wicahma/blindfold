@@ -1,0 +1,28 @@
+# Blindfold CI — runs the full test matrix on every push.
+# Secret sweep runs LAST so a leaked key fails the build at the sweep step too.
+steps:
+  - name: unit + adapters
+    image: python:3.11
+    commands:
+      - pip install --no-cache-dir litellm websockets || true
+      - python3 tests/core/test_transforms.py
+      - python3 tests/core/test_discover.py
+      - python3 tests/adapters/test_gateway.py
+      - python3 tests/adapters/test_gateway_hook.py
+      - python3 tests/adapters/test_gateway_e2e.py
+      - python3 tests/adapters/test_gateway_standalone.py
+      - python3 tests/adapters/test_openwebui.py
+      - python3 tests/adapters/test_qcli.py
+      - python3 tests/adapters/test_hooks_generic.py
+      - python3 tests/adapters/test_mcp.py
+
+  - name: hermes integration
+    image: python:3.11
+    failure: ignore  # hermes-agent source not available in CI image yet
+    commands:
+      - echo "Hermes suites need the hermes-agent tree; run locally via tests/e2e_hermes.py"
+
+  - name: secret sweep
+    image: python:3.11
+    commands:
+      - python3 tests/sweep_secrets.py
