@@ -1,0 +1,20 @@
+[Unit]
+Description=Blindfold secret-masking gateway (OpenAI-compatible reverse proxy)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# ExecStart args: --port binds locally; --upstream is the LLM provider the
+# harnesses' base URLs will point at. Change --upstream per deployment.
+ExecStart=/usr/bin/python3 -m blindfold.adapters.gateway.server --host 127.0.0.1 --port 8488 --upstream https://api.openai.com
+Environment=PYTHONPATH=/home/diama/.hermes/plugins
+Environment=BLINDFOLD_PACKAGE_ROOT=/home/diama/.hermes/plugins
+Restart=on-failure
+RestartSec=3
+# The gateway reads .env files to discover secrets — keep it private.
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
