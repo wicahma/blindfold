@@ -1,0 +1,4 @@
+name: blindfold
+kind: standalone
+description: Registers project .env secrets + their transforms into Hermes' hard vault-redaction boundary, so no value (raw or base64/hex/reversed) ever reaches the model.
+version: 0.1.0
