@@ -92,14 +92,42 @@ def register(ctx):
     ctx.register_hook("on_session_reset", lambda **kw: scan())
     ctx.register_hook("on_session_finalize", lambda **kw: scan())
     ctx.register_hook("pre_tool_call", _pre_tool_call)
+    # Coverage for oneshot (-z) / paths that never fire a session-boundary hook:
+    # the first terminal tool run lazily discovers + masks in the same pass.
+    ctx.register_hook("transform_terminal_output", _transform_terminal_output)
 
 
-def _pre_tool_call(*, tool: str = "", command: str = "", args_raw: str = "",
-                   **_kwargs) -> None:
-    """Re-scan for secrets created mid-session, right before a file-reading tool runs."""
-    if not tool or tool.lower() not in _FILE_TOOLS:
+def _pre_tool_call(*, tool: str = "", tool_name: str = "", command: str = "",
+                   args_raw: str = "", **_kwargs) -> None:
+    """Re-scan for secrets created mid-session, right before a file-reading tool runs.
+
+    Hermes passes tool_name= (plugins.py _get_pre_tool_call_directive_details);
+    tool= kept for older callers/tests.
+    """
+    name = (tool or tool_name or "").lower()
+    if not name or name not in _FILE_TOOLS:
         return
     try:
         scan()
     except Exception:
         logger.debug("blindfold: pre_tool_call rescan failed", exc_info=True)
+
+
+def _transform_terminal_output(*, output: str = "", command: str = "", **_kw):
+    """Lazily scan then mask terminal output.
+
+    Oneshot mode (`hermes -z`) never fires on_session_reset, so the vault can be
+    empty when the first tool runs. This hook scans once (idempotent — vault
+    registration dedupes) and masks before the builtin pattern pass. Returning
+    None keeps the other transform hooks in play; only a mask returns a string.
+    """
+    if not output:
+        return None
+    try:
+        scan()
+        from agent.redact import redact_sensitive_text
+        masked = redact_sensitive_text(output)
+        return masked if masked != output else None
+    except Exception:
+        logger.debug("blindfold: terminal transform failed", exc_info=True)
+        return None
