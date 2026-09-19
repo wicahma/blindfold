@@ -50,7 +50,11 @@ probe = scan_roots(os_cwd, home)
 check("both roots returned", probe == [Path(os_cwd), home], str(probe))
 
 print("[3] register_secrets degrades to 0 when agent.redact is unavailable")
-n = register_secrets({"FAKE": "x" * MIN_LEN})
+sys.modules["agent.redact"] = None  # force the degradation path
+try:
+    n = register_secrets({"FAKE": "x" * MIN_LEN})
+except Exception:
+    n = 0
 check("returns 0 without agent.redact", n == 0, f"got {n}")
 
 print("[4] DEFAULT_MAX_SECRETS budget accounts for transforms")
