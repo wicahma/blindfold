@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="#quickstart">Quickstart</a> · <a href="#how-it-works">How it works</a> · <a href="#adapters">Adapters</a> · <a href="docs/FEATURES.md">Docs</a>
+  <a href="#quickstart">Quickstart</a> · <a href="#how-it-works">How it works</a> · <a href="#adapters">Adapters</a>
 </p>
 
 ---
@@ -103,7 +103,7 @@ Two details that bit during development:
 
 ## Adapters
 
-Enforcement matrix (verified Sept 2026, see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)):
+Enforcement matrix (verified Sept 2026):
 masking = universal gateway; blocking = `generic_block.py`; discovery/probe from
 chat = MCP companion. An adapter ships only when the full probe suite is green.
 
@@ -145,13 +145,6 @@ scanners *find*, Blindfold *enforces*.
 | `tests/e2e_hermes.py` | End-to-end against real Hermes discovery + real `.env` |
 | `tests/stress_threshold.py` | Bucket-threshold regression (300 secrets, 0 evicted) |
 | `tests/adapters/test_hook_filecontent.py` | Read/Bash file-content block regressions |
-
-## Documentation
-
-- **[docs/FEATURES.md](docs/FEATURES.md)** — every feature, how it works, and the
-  test that proves it. Start here.
-- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — where each piece lives, which
-  Hermes primitive it touches, and the failure modes.
 
 ## Research background
 
