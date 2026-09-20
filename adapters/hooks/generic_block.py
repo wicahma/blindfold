@@ -25,11 +25,21 @@ from __future__ import annotations
 import json
 import os
 import sys
+from pathlib import Path
 
 
 def _values() -> list[str]:
-    raw = os.environ.get("BLINDFOLD_VALUES", "")
-    return [v for v in raw.split("\n") if v]
+    raw = os.environ.get("BLINDFOLD_VALUES")
+    if raw is not None:
+        return [v for v in raw.split("\n") if v]
+    # Fallback to standard location written by installer
+    vf = Path.home() / ".blindfold" / "values.env"
+    if vf.exists():
+        try:
+            return [line.strip() for line in vf.read_text().splitlines() if line.strip()]
+        except OSError:
+            pass
+    return []
 
 
 def _strings(obj, out: list[str]) -> None:
@@ -44,6 +54,61 @@ def _strings(obj, out: list[str]) -> None:
             _strings(v, out)
 
 
+def _read_file_inputs(payload) -> list[str]:
+    """Pull contents of files a Read-type tool is about to open.
+
+    Block-only hooks only see the tool input, not tool output. For Read tools
+    the secret is in the file being opened, so read it here too (best effort).
+    """
+    ti = payload.get("tool_input") or payload.get("toolInput") or {}
+    if not isinstance(ti, dict):
+        return []
+    out = []
+    for k, v in ti.items():
+        if "file" in k and "path" in k and isinstance(v, str):
+            try:
+                with open(v, "r", errors="replace") as fh:
+                    out.append(fh.read())
+            except OSError:
+                pass
+    return out
+
+
+def _bash_file_reads(payload) -> list[str]:
+    ti = payload.get("tool_input") or payload.get("toolInput") or {}
+    if not isinstance(ti, dict):
+        return []
+    cmd = ti.get("command") or ti.get("input") or ""
+    if not isinstance(cmd, str):
+        return []
+    import shlex
+
+    out: list[str] = []
+    try:
+        toks = shlex.split(cmd)
+    except ValueError:
+        return out
+    # Only read files that are arguments to typical inspection commands
+    # (cat, head, tail, grep, less, more, source, .) to avoid pulling
+    # in source code during compile commands.
+    if not toks:
+        return out
+    first = toks[0].split("/")[-1]
+    if first not in ("cat", "head", "tail", "grep", "sed", "awk", "less", "more", "source", ".", "cut", "read"):
+        return out
+    base = Path(ti.get("cwd") or os.getcwd())
+    for t in toks[1:]:
+        if t.startswith("-"):
+            continue
+        p = Path(t) if Path(t).is_absolute() else base / t
+        try:
+            with open(p, "r", errors="replace") as fh:
+                out.append(fh.read())
+        except OSError:
+            pass
+    return out
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -56,6 +121,8 @@ def main() -> int:
 
     strings: list[str] = []
     _strings(payload, strings)
+    strings.extend(_read_file_inputs(payload))
+    strings.extend(_bash_file_reads(payload))
     blob = "\n".join(strings)
 
     for v in sorted(values, key=len, reverse=True):

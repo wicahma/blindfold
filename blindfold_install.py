@@ -74,7 +74,7 @@ def install_claude_code(home: Path, dry: bool):
         cfg = json.loads(sf.read_text())
     hooks = cfg.setdefault("hooks", {})
     pre = hooks.setdefault("PreToolUse", [])
-    entry = {"matcher": "Bash|Write|Edit",
+    entry = {"matcher": "Read|Bash|Write|Edit",
              "hooks": [{"type": "command", "command": f"python3 {HOOK}"}]}
     if json.dumps(pre).find("generic_block.py") == -1:
         pre.append(entry)

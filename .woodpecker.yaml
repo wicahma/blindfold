@@ -1,9 +1,13 @@
 # Blindfold CI — runs the full test matrix on every push.
-# Secret sweep runs LAST so a leaked key fails the build at the sweep step too.
+# Repo checkout dir is the `blindfold` package itself; put its parent on
+# PYTHONPATH so `import blindfold` resolves, plus the hermes-agent source for
+# the integration suites.
 steps:
   - name: unit + adapters
     image: python:3.11
     commands:
+      - export REPO=$(pwd)
+      - export PYTHONPATH=$(dirname $REPO)
       - python3 tests/core/test_transforms.py
       - python3 tests/core/test_discover.py
       - python3 tests/adapters/test_gateway.py
@@ -14,6 +18,7 @@ steps:
       - python3 tests/adapters/test_qcli.py
       - python3 tests/adapters/test_hooks_generic.py
       - python3 tests/adapters/test_mcp.py
+      - python3 tests/adapters/test_hook_filecontent.py
 
   - name: hermes integration
     image: python:3.11
@@ -24,6 +29,8 @@ steps:
       - export PYTHONPATH=$(python3 -c "import hermes_cli, os; print(os.path.dirname(os.path.dirname(hermes_cli.__file__)))")
       - python3 tests/test_mid_session.py
       - python3 tests/e2e_hermes.py
+      - export PYTHONPATH=$PYTHONPATH:$(pwd)
+      - python3 tests/adapters/test_real_kwarg.py
 
   - name: secret sweep
     image: python:3.11
