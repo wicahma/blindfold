@@ -4,7 +4,6 @@ steps:
   - name: unit + adapters
     image: python:3.11
     commands:
-      - pip install --no-cache-dir litellm websockets || true
       - python3 tests/core/test_transforms.py
       - python3 tests/core/test_discover.py
       - python3 tests/adapters/test_gateway.py
@@ -18,9 +17,13 @@ steps:
 
   - name: hermes integration
     image: python:3.11
-    failure: ignore  # hermes-agent source not available in CI image yet
+    environment:
+      HERMES_REDACT_SECRETS: "true"
     commands:
-      - echo "Hermes suites need the hermes-agent tree; run locally via tests/e2e_hermes.py"
+      - pip install --no-cache-dir hermes-agent
+      - export PYTHONPATH=$(python3 -c "import hermes_cli, os; print(os.path.dirname(os.path.dirname(hermes_cli.__file__)))")
+      - python3 tests/test_mid_session.py
+      - python3 tests/e2e_hermes.py
 
   - name: secret sweep
     image: python:3.11
