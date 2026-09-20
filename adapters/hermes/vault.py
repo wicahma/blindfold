@@ -46,6 +46,7 @@ def register_one(value: str) -> bool:
 
 
 def register_secrets(secrets: dict[str, str]) -> int:
+    raise_bucket_cap()
     return sum(1 for v in secrets.values() if register_one(v))
 
 
