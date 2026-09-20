@@ -21,7 +21,7 @@ ALLOW = {
     "aaa1234567890qwertyuiopasdfghjkl",
 }
 NOISE = ("hmac/hashlib", "Read/Bash", "AWS/Slack", "com/orgs", "com/wicahma",
-         "GitLab(13", "Google/Stripe")
+         "GitLab(13", "Google/Stripe", "github/stars", "github/actions", "github/license")
 
 HEX = re.compile(r"\b[A-Za-z0-9+/=]{32,}\b")
 TOKEN = re.compile(r"\b(?:sk|gh[pousrt]|xox[abprs]|AKIA|eyJ)[A-Za-z0-9_\-]{16,}\b")

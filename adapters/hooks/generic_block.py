@@ -32,7 +32,6 @@ def _values() -> list[str]:
     raw = os.environ.get("BLINDFOLD_VALUES")
     if raw is not None:
         return [v for v in raw.split("\n") if v]
-    # Fallback to standard location written by installer
     vf = Path.home() / ".blindfold" / "values.env"
     if vf.exists():
         try:
@@ -75,6 +74,9 @@ def _read_file_inputs(payload) -> list[str]:
 
 
 def _bash_file_reads(payload) -> list[str]:
+    """Resolve file paths in a Bash command and read their contents — the
+    payload carries the command line, not what it reads. Inspection commands
+    only, so compile/source invocations don't pull in random code."""
     ti = payload.get("tool_input") or payload.get("toolInput") or {}
     if not isinstance(ti, dict):
         return []
@@ -88,9 +90,6 @@ def _bash_file_reads(payload) -> list[str]:
         toks = shlex.split(cmd)
     except ValueError:
         return out
-    # Only read files that are arguments to typical inspection commands
-    # (cat, head, tail, grep, less, more, source, .) to avoid pulling
-    # in source code during compile commands.
     if not toks:
         return out
     first = toks[0].split("/")[-1]
@@ -113,7 +112,7 @@ def main() -> int:
     try:
         payload = json.load(sys.stdin)
     except Exception:
-        return 0  # not a hook payload we understand — fail safe: allow
+        return 0
 
     values = _values()
     if not values:

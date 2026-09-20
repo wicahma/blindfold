@@ -1,8 +1,4 @@
-"""Blindfold core — harness-agnostic secret discovery + transform registry.
-
-DILARANG import apapun dari harness di sini. Bug di discovery = fix sekali,
-bukan per-harness. Adapter hanya terjemahkan API harness ke kontrak ini.
-"""
+"""Blindfold core — harness-agnostic secret discovery + transform registry."""
 from __future__ import annotations
 
 import base64
@@ -24,10 +20,8 @@ __all__ = [
     "transforms_of",
 ]
 
-# Secret-shaped env var names. Harness keyword scanners cover the keyword half;
-# this catches names that carry a real secret but no keyword (verified leak class).
 SENSITIVE_NAME = re.compile(
-    r"^(.*_(TOKEN|SECRET|API_KEY|APIKEY|PASSWORD|PASSWD|PASS|KEY|CREDENTIAL)"
+    r"^((.*_)?(TOKEN|SECRET|API_KEY|APIKEY|PASSWORD|PASSWD|PASS|KEY|CREDENTIAL)"
     r"|SUDO_PASSWORD|.*_SESSION_(KEY|TOKEN)|CONNECTION_STRING|.*_URL_WITH_CRED)$"
 )
 NEVER_SECRET = frozenset({
@@ -36,27 +30,21 @@ NEVER_SECRET = frozenset({
 })
 MIN_LEN = 8
 
-# Encodings an agent can emit to exfiltrate a known value past a pattern scanner.
-# Registering them makes the exact-substring scrub form-invariant.
 TRANSFORMS = (
     ("base64", lambda v: base64.b64encode(v.encode()).decode()),
     ("hex", lambda v: v.encode().hex()),
     ("reversed", lambda v: v[::-1]),
     ("url", lambda v: quote(v, safe="")),
 )
-VAULT_SLOT_MULTIPLIER = 1 + len(TRANSFORMS)  # raw value + transforms
+VAULT_SLOT_MULTIPLIER = 1 + len(TRANSFORMS)
 
 
 def is_sensitive(name: str, value: str) -> bool:
-    """Name says it's a secret → register unconditionally.
-
-    Deliberately NO entropy/shape test on the value: judging it re-introduces
-    the false-negative class (a weak password that "doesn't look secret") that
-    this exists to close.
-    """
+    """Name says it's a secret → register. No entropy check on the value:
+    judging shape re-introduces the weak-password false-negative class."""
     if name in NEVER_SECRET or name.endswith("_SESSION") or len(value) < MIN_LEN:
         return False
-    return bool(SENSITIVE_NAME.match(name))
+    return bool(SENSITIVE_NAME.match(name) or SENSITIVE_NAME.match(name.upper()))
 
 
 def transforms_of(value: str) -> list[str]:

@@ -19,6 +19,7 @@ steps:
       - python3 tests/adapters/test_hooks_generic.py
       - python3 tests/adapters/test_mcp.py
       - python3 tests/adapters/test_hook_filecontent.py
+      - python3 tests/adapters/test_scanner.py
 
   - name: hermes integration
     image: python:3.11
