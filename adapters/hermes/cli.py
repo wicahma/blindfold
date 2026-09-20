@@ -28,8 +28,9 @@ def _cmd_status(args) -> None:
         print(line)
 
 
-def _setup(sub) -> None:
-    sub.add_parser("status", help="vault size, sources, scan result").set_defaults(
+def _setup(parser) -> None:
+    subs = parser.add_subparsers(dest="blindfold_command")
+    subs.add_parser("status", help="vault size, sources, scan result").set_defaults(
         func=_cmd_status)
 
 
