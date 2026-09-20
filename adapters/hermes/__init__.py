@@ -82,6 +82,30 @@ def scan(cwd: Path | None = None, hermes_home: str | Path | None = None, **_kw) 
     return {"registered": n, "sources": len(secrets)}
 
 
+def _transform_llm_output(*, response_text: str = "", **_kw):
+    """Append a blindfold status footer to every final assistant response.
+
+    Shows the user the plugin is live: vault size + last scan result. Silent
+    no-op on empty text; scan errors degrade to "scan failed" footer.
+    """
+    if not response_text:
+        return None
+    try:
+        res = scan()
+        from agent.redact import _VAULT_REDACTION_VALUES, _vault_scope
+    except Exception:
+        return None
+    try:
+        n_vals = len(_VAULT_REDACTION_VALUES.get(_vault_scope(), {}))
+    except Exception:
+        n_vals = None
+    src = res.get("sources", 0)
+    reg = res.get("registered", 0)
+    vault = f", {n_vals} vault slots" if isinstance(n_vals, int) else ""
+    footer = f"\n\n---\n🛡 blindfold: active — {reg} secret(s) registered from {src} source(s){vault}"
+    return response_text + footer
+
+
 def register(ctx):
     """Hermes plugin entry point.
 
@@ -95,6 +119,7 @@ def register(ctx):
     # Coverage for oneshot (-z) / paths that never fire a session-boundary hook:
     # the first terminal tool run lazily discovers + masks in the same pass.
     ctx.register_hook("transform_terminal_output", _transform_terminal_output)
+    ctx.register_hook("transform_llm_output", _transform_llm_output)
 
 
 def _pre_tool_call(*, tool: str = "", tool_name: str = "", command: str = "",
