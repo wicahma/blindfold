@@ -46,9 +46,13 @@ import importlib  # noqa: E402
 have_harness = True
 import agent.redact  # noqa: E402, F401
 import blindfold.adapters.hermes.vault as vault_mod  # noqa: E402
+import blindfold.adapters.hermes.persist as persist_mod  # noqa: E402
 import blindfold.adapters.hermes.hooks as hooks_mod  # noqa: E402
 
 importlib.reload(vault_mod)
+importlib.reload(persist_mod)
+import tempfile as _tempfile  # noqa: E402
+persist_mod.CACHE_PATH = Path(_tempfile.mkdtemp()) / "learned.txt"
 importlib.reload(hooks_mod)
 _transform_tool_result = hooks_mod._transform_tool_result
 

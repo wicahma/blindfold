@@ -14,6 +14,7 @@ from ...core import (  # noqa: F401
     is_sensitive, discover_env, discover_dotenv, discover_all, transforms_of,
 )
 from . import cli as _cli
+from . import persist, watch
 from .hooks import (  # noqa: F401
     scan_roots, scan, _pre_tool_call, _transform_tool_result,
     _transform_terminal_output, _transform_llm_output,
@@ -48,3 +49,16 @@ def register(ctx):
     ctx.register_hook("transform_terminal_output", _transform_terminal_output)
     ctx.register_hook("transform_llm_output", _transform_llm_output)
     _cli.register_cli(ctx)
+    restored = persist.restore()
+    if restored:
+        logger.info("blindfold: restored %d learned value(s) from cache", restored)
+    try:
+        import os
+        from pathlib import Path
+        roots = [Path.cwd()]
+        home = os.environ.get("HERMES_HOME")
+        if home:
+            roots.append(Path(home))
+        watch.start(roots, scan)
+    except Exception:
+        logger.debug("blindfold: watcher start failed", exc_info=True)

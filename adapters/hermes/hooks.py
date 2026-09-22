@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 
 from ...core import discover_all
-from . import scanner, vault
+from . import persist, scanner, vault
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ def _transform_tool_result(*, result=None, **_kw):
     try:
         import agent.redact as redact
         for value in scanner.find_secrets(result):
-            vault.learn_value(value)
+            persist.learn(value)
         masked = redact.redact_registered_vault_values(result)
         return masked if masked != result else None
     except Exception:
