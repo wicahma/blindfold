@@ -17,6 +17,13 @@ logger = logging.getLogger(__name__)
 _FILE_TOOLS = frozenset({"read_file", "read_files", "cat", "terminal",
                          "execute_code", "bash", "shell", "web_extract"})
 
+_IGNORE_GLOBS: list[str] = []
+
+
+def set_ignore_globs(globs: list[str]) -> None:
+    global _IGNORE_GLOBS
+    _IGNORE_GLOBS = globs
+
 
 def scan_roots(cwd: Path, hermes_home: str | Path | None) -> list[Path]:
     roots = [Path(cwd)]
@@ -29,7 +36,7 @@ def scan(cwd: Path | None = None, hermes_home: str | Path | None = None, **_kw) 
     cwd = Path(cwd) if cwd is not None else Path.cwd()
     if hermes_home is None:
         hermes_home = os.environ.get("HERMES_HOME")
-    secrets = discover_all(scan_roots(cwd, hermes_home))
+    secrets = discover_all(scan_roots(cwd, hermes_home), _IGNORE_GLOBS)
     vault.raise_bucket_cap()
     n = vault.register_secrets(secrets)
     logger.info("blindfold: registered %d secret(s) (+ transforms) from %d source(s)",

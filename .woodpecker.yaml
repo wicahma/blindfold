@@ -22,6 +22,7 @@ steps:
       - python3 tests/adapters/test_scanner.py
       - python3 tests/adapters/test_cli_config.py
       - python3 tests/adapters/test_persist_watch_sweep.py
+      - python3 tests/adapters/test_ignore_globs.py
 
   - name: hermes integration
     image: python:3.11

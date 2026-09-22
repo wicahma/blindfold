@@ -42,6 +42,10 @@ def register(ctx):
     max_secrets = ctx.get_config("max_secrets")
     if isinstance(max_secrets, int) and max_secrets > 0:
         vault.DEFAULT_MAX_SECRETS = max_secrets
+    ignore_sources = ctx.get_config("ignore_sources", [])
+    if isinstance(ignore_sources, list) and ignore_sources:
+        from . import hooks as _hooks
+        _hooks.set_ignore_globs([str(g) for g in ignore_sources])
     ctx.register_hook("on_session_reset", lambda **kw: scan())
     ctx.register_hook("on_session_finalize", lambda **kw: scan())
     ctx.register_hook("pre_tool_call", _pre_tool_call)

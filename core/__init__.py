@@ -68,13 +68,16 @@ def discover_env() -> dict[str, str]:
     return out
 
 
-def discover_dotenv(roots: list[Path]) -> dict[str, str]:
+def discover_dotenv(roots: list[Path], ignore_globs: list[str] | None = None) -> dict[str, str]:
     out: dict[str, str] = {}
+    ignore = ignore_globs or []
     for root in roots:
         if not root.is_dir():
             continue
         for path in sorted(root.glob(".env*")):
             if path.suffix in (".example", ".sample", ".template"):
+                continue
+            if ignore and any(path.match(g) or path.name == g for g in ignore):
                 continue
             try:
                 text = path.read_text(errors="replace")
@@ -92,6 +95,6 @@ def discover_dotenv(roots: list[Path]) -> dict[str, str]:
     return out
 
 
-def discover_all(roots: list[Path]) -> dict[str, str]:
+def discover_all(roots: list[Path], ignore_globs: list[str] | None = None) -> dict[str, str]:
     """Merge process env + dotenv. Env wins on bare-name collisions."""
-    return {**discover_dotenv(roots), **discover_env()}
+    return {**discover_dotenv(roots, ignore_globs), **discover_env()}
