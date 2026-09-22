@@ -28,6 +28,12 @@ NEVER_SECRET = frozenset({
     "PATH", "HOME", "USER", "SHELL", "PWD", "LANG", "LC_ALL", "TERM", "HOSTNAME",
     "SSH_AUTH_SOCK", "DISPLAY", "EDITOR", "TMPDIR", "XDG_RUNTIME_DIR",
 })
+
+REDACTION_PLACEHOLDER = "«redacted-vault-secret»"
+
+
+def _is_placeholder(value: str) -> bool:
+    return REDACTION_PLACEHOLDER in value
 MIN_LEN = 8
 
 TRANSFORMS = (
@@ -42,6 +48,8 @@ VAULT_SLOT_MULTIPLIER = 1 + len(TRANSFORMS)
 def is_sensitive(name: str, value: str) -> bool:
     """Name says it's a secret → register. No entropy check on the value:
     judging shape re-introduces the weak-password false-negative class."""
+    if _is_placeholder(value):
+        return False
     if name in NEVER_SECRET or name.endswith("_SESSION") or len(value) < MIN_LEN:
         return False
     return bool(SENSITIVE_NAME.match(name) or SENSITIVE_NAME.match(name.upper()))
