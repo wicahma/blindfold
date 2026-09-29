@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from pathlib import Path
 
 from ...core import discover_all
@@ -18,6 +19,11 @@ _FILE_TOOLS = frozenset({"read_file", "read_files", "cat", "terminal",
                          "execute_code", "bash", "shell", "web_extract"})
 
 _IGNORE_GLOBS: list[str] = []
+
+# Strips stale footers (quoted history, prior turns) before appending the fresh one.
+_FOOTER_RE = re.compile(
+    r"\n*---\n🛡 blindfold: active — \d+ secret\(s\) registered "
+    r"from \d+ source\(s\)(?:, \d+ vault slots)?")
 
 
 def set_ignore_globs(globs: list[str]) -> None:
@@ -93,7 +99,8 @@ def _transform_llm_output(*, response_text: str = "", **_kw):
     vault_info = f", {n_vals} vault slots" if isinstance(n_vals, int) else ""
     footer = (f"\n\n---\n🛡 blindfold: active — {reg} secret(s) registered "
               f"from {src} source(s){vault_info}")
-    return response_text + footer
+    cleaned = _FOOTER_RE.sub("", response_text).rstrip()
+    return cleaned + footer
 
 
 __all__ = ["scan_roots", "scan", "_pre_tool_call", "_transform_tool_result",
