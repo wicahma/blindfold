@@ -83,9 +83,6 @@ def _transform_terminal_output(*, output: str = "", command: str = "", **_kw):
 def _transform_llm_output(*, response_text: str = "", **_kw):
     if not response_text:
         return None
-    if "🛡 blindfold:" in response_text:
-        # already has footer, skip adding another
-        return None
     try:
         res = scan()
     except Exception:
