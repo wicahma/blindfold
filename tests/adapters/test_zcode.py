@@ -62,15 +62,24 @@ def main():
     print("[1] dry-run: nothing written")
     r = run_install(home, "zcode", "--dry-run")
     check("dry-run exits 0", r.returncode == 0, r.stderr[-200:])
-    check("config still has no hooks", "hooks" not in json.loads(cf.read_text()))
+    check("config still has no plugins.dirs", "dirs" not in json.loads(cf.read_text()).get("plugins", {}))
 
-    print("[2] install writes a schema-valid ZCode hook config")
+    print("[2] install registers the repo as an inline plugin root")
     r = run_install(home, "zcode")
     check("install exits 0", r.returncode == 0, r.stderr[-200:])
     cfg = json.loads(cf.read_text())
-    hooks = cfg.get("hooks", {})
-    check("hooks.enabled true", hooks.get("enabled") is True, repr(hooks.get("enabled")))
-    pre = hooks.get("events", {}).get("PreToolUse", [])
+    dirs = cfg.get("plugins", {}).get("dirs", [])
+    check("plugins.dirs has the repo root", str(ROOT) in dirs, str(dirs))
+    check("exactly one dir", len(dirs) == 1, str(dirs))
+
+    print("[2b] plugin manifest + hooks file are well-formed")
+    man = json.loads((ROOT / ".zcode-plugin" / "plugin.json").read_text())
+    check("manifest name matches ZCode's id rule",
+          bool(__import__("re").fullmatch(r"[a-z0-9][a-z0-9._-]{0,127}", man.get("name", ""))), man.get("name"))
+    check("manifest declares the hooks file", man.get("hooks") == "./hooks/hooks.json", str(man.get("hooks")))
+    hk = json.loads((ROOT / "hooks" / "hooks.json").read_text())
+    check("hooks.json uses the wrapper form", set(hk) == {"hooks"}, str(sorted(hk)))
+    pre = hk.get("hooks", {}).get("PreToolUse", [])
     check("PreToolUse entry present", len(pre) == 1, str(len(pre)))
     if pre:
         e = pre[0]
@@ -80,6 +89,7 @@ def main():
         h = e["hooks"][0]
         check("hook type command", h.get("type") == "command", h.get("type"))
         check("hook keys are exactly type+command", set(h) == {"type", "command"}, str(sorted(h)))
+        check("hook resolves via plugin root var", "${ZCODE_PLUGIN_ROOT}" in h.get("command", ""), h.get("command"))
         check("hook points at generic_block.py", "generic_block.py" in h.get("command", ""))
 
     print("[3] merge preserves pre-existing config")
@@ -88,8 +98,15 @@ def main():
 
     print("[4] idempotency: second run adds no duplicate")
     run_install(home, "zcode")
-    n = json.dumps(json.loads(cf.read_text())).count("generic_block.py")
-    check("still exactly 1 entry", n == 1, str(n))
+    dirs2 = json.loads(cf.read_text())["plugins"]["dirs"]
+    check("still exactly 1 dir", len(dirs2) == 1, str(dirs2))
+
+    print("[4b] backup keeps the pristine original across reruns")
+    bak = cf.parent / (cf.name + ".blf-backup")
+    check("backup exists", bak.exists())
+    if bak.exists():
+        check("backup has no plugins.dirs", "dirs" not in json.loads(bak.read_text()).get("plugins", {}),
+              bak.read_text())
 
     print("[5] values.env written with 600")
     vf = home / ".blindfold" / "values.env"

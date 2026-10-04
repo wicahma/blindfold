@@ -77,6 +77,19 @@ git clone https://github.com/wicahma/blindfold
 python3 blindfold_install.py zcode && python3 blindfold_install.py probe
 ```
 
+ZCode installs as a **local plugin**: the repo root carries `.zcode-plugin/plugin.json`
+and `hooks/hooks.json`, and the installer adds the root to `plugins.dirs` in
+`~/.zcode/cli/config.json` (id `blindfold@inline`, enabled by default). Restart
+ZCode once afterwards — plugins are discovered at bootstrap. Verify with
+`zcode plugins list` (expect `blindfold@inline [enabled] ... hooks: 1`).
+
+Why a plugin and not a hook entry in the user config: ZCode's runtime PreToolUse
+runner does **not** read hook declarations from `~/.zcode/cli/config.json` — that
+file only supplies the global `hooks.enabled` flag. Runtime hooks come from
+plugins, or from workspace files (`<ws>/zcode.json`, `<ws>/.zcode/config.json`)
+which are gated behind a per-declaration workspace-trust grant that needs an
+interactive approval. The plugin path needs no trust prompt.
+
 Re-run `python3 blindfold_install.py refresh-values` after adding new secrets to
 a `.env` — the registry is a snapshot, not a watcher.
 
@@ -127,7 +140,7 @@ chat = MCP companion. An adapter ships only when the full probe suite is green.
 |---|---|---|
 | Hermes Agent | plugin (hooks) | mask + block |
 | Claude Code, Codex CLI, Cline, Cursor, Windsurf | `adapters/hooks/generic_block.py` | block |
-| ZCode | `adapters/hooks/generic_block.py` (config hooks, `hooks.events.PreToolUse`) | block |
+| ZCode | local plugin (`.zcode-plugin/` + `hooks/hooks.json`, registered via `plugins.dirs`) | block |
 | Any OpenAI-compatible harness | `adapters/gateway/server.py` (reverse proxy, LiteLLM optional) | mask |
 | Amazon Q CLI | `adapters/qcli/hook.py` | block |
 | Open WebUI | `adapters/openwebui/filter.py` (Function, toggle locked) | mask |

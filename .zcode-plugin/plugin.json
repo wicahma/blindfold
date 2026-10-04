@@ -1,0 +1,10 @@
+{
+  "name": "blindfold",
+  "version": "0.1.0",
+  "description": "Block tool calls that would pull a registered .env secret into the model context, raw or in any transform form (base64/hex/reversed/url-encoded).",
+  "author": {
+    "name": "wicahma"
+  },
+  "license": "MIT",
+  "hooks": "./hooks/hooks.json"
+}

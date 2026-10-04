@@ -83,8 +83,11 @@ def write_values_file(home: Path, values: list[str], dry: bool) -> None:
 
 
 def _backup(path: Path, dry: bool):
-    if not dry and path.exists():
-        (path.parent / (path.name + ".blf-backup")).write_text(path.read_text())
+    """Save the pre-blindfold original once. Re-copying on every run would
+    overwrite it with an already-patched file, losing the pristine version."""
+    bak = path.parent / (path.name + ".blf-backup")
+    if not dry and path.exists() and not bak.exists():
+        bak.write_text(path.read_text())
 
 
 def install_claude_code(home: Path, dry: bool):
@@ -155,30 +158,38 @@ def install_codex(home: Path, dry: bool):
 
 
 def install_zcode(home: Path, dry: bool):
-    """ZCode config.json. Two differences from Claude Code matter here:
-    hooks live under `hooks.events.<Event>` (not `hooks.<Event>`), and
-    configuration-file hooks are inert unless `hooks.enabled` is true. The
-    schema is strict, so the entry must carry exactly matcher + hooks.
+    """Register the repo as a local ZCode plugin root via `plugins.dirs`.
+
+    ZCode's runtime PreToolUse runner does NOT read hook declarations from
+    `~/.zcode/cli/config.json`; that file only supplies the global
+    `hooks.enabled` flag. Runtime hooks come from plugins
+    (`<root>/hooks/hooks.json`, no trust gate) or from workspace config files
+    (`<ws>/zcode.json`, `<ws>/.zcode/config.json`), which are gated behind a
+    per-declaration workspace-trust grant. The plugin path is the one that
+    works without an interactive trust prompt.
+
+    `plugins.dirs` entries are resolved as inline plugin roots with
+    `defaultEnabled: true`, so the manifest name (`blindfold`) becomes the id
+    `blindfold@inline` and no marketplace install is required.
     """
     cf = home / ".zcode" / "cli" / "config.json"
-    _backup(cf, dry)
     cfg: dict = {}
     if cf.exists():
         cfg = json.loads(cf.read_text())
-    hooks = cfg.setdefault("hooks", {})
-    hooks["enabled"] = True
-    events = hooks.setdefault("events", {})
-    pre = events.setdefault("PreToolUse", [])
-    entry = {"matcher": "Read|Bash|Write|Edit",
-             "hooks": [{"type": "command", "command": f"python3 {HOOK}"}]}
-    if json.dumps(pre).find("generic_block.py") == -1:
-        pre.append(entry)
+    plugins = cfg.setdefault("plugins", {})
+    dirs = plugins.setdefault("dirs", [])
+    root = str(REPO_ROOT)
+    changed = root not in dirs
+    if changed:
+        dirs.append(root)
     if dry:
-        note("zcode", "OK(dry)", str(cf))
+        note("zcode", "OK(dry)", f"{cf} (+ plugins.dirs: {root})" if changed
+             else f"{cf} (already registered)")
         return
+    _backup(cf, dry)
     cf.parent.mkdir(parents=True, exist_ok=True)
     cf.write_text(json.dumps(cfg, indent=2))
-    note("zcode", "OK", str(cf))
+    note("zcode", "OK" if changed else "OK", f"{cf} — plugin root {root}")
 
 
 def install_hermes(home: Path, dry: bool):
