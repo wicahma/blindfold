@@ -67,8 +67,18 @@ Every assistant response now carries a live status footer:
 python3 blindfold_install.py all && python3 blindfold_install.py probe
 ```
 
-Injects hooks into Claude Code, Cursor, Codex CLI, Amazon Q CLI; writes
+Injects hooks into Claude Code, Cursor, Codex CLI, Amazon Q CLI, ZCode; writes
 `~/.blindfold/values.env` (chmod 600); idempotent, atomic, backs up first.
+
+Single harness, e.g. ZCode:
+
+```bash
+git clone https://github.com/wicahma/blindfold
+python3 blindfold_install.py zcode && python3 blindfold_install.py probe
+```
+
+Re-run `python3 blindfold_install.py refresh-values` after adding new secrets to
+a `.env` — the registry is a snapshot, not a watcher.
 
 ## How it works
 
@@ -111,6 +121,7 @@ chat = MCP companion. An adapter ships only when the full probe suite is green.
 |---|---|---|
 | Hermes Agent | plugin (hooks) | mask + block |
 | Claude Code, Codex CLI, Cline, Cursor, Windsurf | `adapters/hooks/generic_block.py` | block |
+| ZCode | `adapters/hooks/generic_block.py` (config hooks, `hooks.events.PreToolUse`) | block |
 | Any OpenAI-compatible harness | `adapters/gateway/server.py` (reverse proxy, LiteLLM optional) | mask |
 | Amazon Q CLI | `adapters/qcli/hook.py` | block |
 | Open WebUI | `adapters/openwebui/filter.py` (Function, toggle locked) | mask |

@@ -7,7 +7,7 @@ Usage:
     python3 blindfold_install.py all    [--home DIR]
 
 Harnesses: hermes | claude-code | codex | cursor | qcli | windsurf | gateway
-           openwebui | all | probe | refresh-values
+           openwebui | zcode | all | probe | refresh-values
 """
 from __future__ import annotations
 
@@ -30,9 +30,13 @@ def note(harness: str, status: str, detail: str = ""):
 
 def discover_values(home: Path) -> list[str]:
     """Discover secrets under home + cwd, expand transforms, dedupe."""
-    pkg = os.environ.get("BLINDFOLD_PACKAGE_ROOT", str(Path.home() / ".hermes" / "plugins"))
-    if pkg not in sys.path:
-        sys.path.insert(0, pkg)
+    # A checkout is its own package root: REPO_ROOT.parent makes `blindfold.core`
+    # importable without the Hermes plugin layout. Without it a fresh clone
+    # discovers nothing and the hook registers an empty registry.
+    for pkg in (os.environ.get("BLINDFOLD_PACKAGE_ROOT"), str(REPO_ROOT.parent),
+                str(Path.home() / ".hermes" / "plugins")):
+        if pkg and pkg not in sys.path:
+            sys.path.insert(0, pkg)
     try:
         from blindfold.core import discover_all, transforms_of
     except ImportError:
@@ -133,6 +137,33 @@ def install_codex(home: Path, dry: bool):
     note("codex", "OK", str(cf))
 
 
+def install_zcode(home: Path, dry: bool):
+    """ZCode config.json. Two differences from Claude Code matter here:
+    hooks live under `hooks.events.<Event>` (not `hooks.<Event>`), and
+    configuration-file hooks are inert unless `hooks.enabled` is true. The
+    schema is strict, so the entry must carry exactly matcher + hooks.
+    """
+    cf = home / ".zcode" / "cli" / "config.json"
+    _backup(cf, dry)
+    cfg: dict = {}
+    if cf.exists():
+        cfg = json.loads(cf.read_text())
+    hooks = cfg.setdefault("hooks", {})
+    hooks["enabled"] = True
+    events = hooks.setdefault("events", {})
+    pre = events.setdefault("PreToolUse", [])
+    entry = {"matcher": "Read|Bash|Write|Edit",
+             "hooks": [{"type": "command", "command": f"python3 {HOOK}"}]}
+    if json.dumps(pre).find("generic_block.py") == -1:
+        pre.append(entry)
+    if dry:
+        note("zcode", "OK(dry)", str(cf))
+        return
+    cf.parent.mkdir(parents=True, exist_ok=True)
+    cf.write_text(json.dumps(cfg, indent=2))
+    note("zcode", "OK", str(cf))
+
+
 def install_hermes(home: Path, dry: bool):
     plugin = Path(os.environ.get("BLINDFOLD_PACKAGE_ROOT",
                                  str(Path.home() / ".hermes" / "plugins" / "blindfold")))
@@ -171,6 +202,7 @@ INSTALLERS = {
     "windsurf": install_windsurf,
     "gateway": install_gateway,
     "openwebui": install_openwebui,
+    "zcode": install_zcode,
 }
 
 
@@ -217,6 +249,11 @@ def main() -> int:
         rc = probe(home)
         _print()
         return rc
+
+    if args.target == "refresh-values":
+        write_values_file(home, discover_values(home), args.dry_run)
+        _print()
+        return 0
 
     values = discover_values(home)
     write_values_file(home, values, args.dry_run)

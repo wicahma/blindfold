@@ -11,7 +11,20 @@ NEVER_SECRET = {"PATH", "HOME", "USER", "SHELL", "SSH_AUTH_SOCK", "PWD", "LANG",
 TRIVIAL = {"true", "false", "none", "null", "yes", "no", "0", "1"}
 MIN_LEN = 8
 
-STATE_DIR = Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}") / "blindfold"
+def _runtime_dir():
+    """Per-user private dir. /run/user/<uid> is Linux-only; on macOS neither it
+    nor XDG_RUNTIME_DIR exists, so fall back to the user's own temp dir. The
+    state file holds raw secret values, so the location must stay 0700/0600."""
+    xdg = os.environ.get("XDG_RUNTIME_DIR")
+    if xdg:
+        return Path(xdg) / "blindfold"
+    run_user = Path(f"/run/user/{os.getuid()}")
+    if run_user.is_dir():
+        return run_user / "blindfold"
+    return Path(tempfile.gettempdir()) / f"blindfold-{os.getuid()}"
+
+
+STATE_DIR = _runtime_dir()
 STATE_FILE = STATE_DIR / "state.json"
 
 def _load_state():
