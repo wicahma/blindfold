@@ -28,8 +28,25 @@ def note(harness: str, status: str, detail: str = ""):
     RESULTS.append((harness, status, detail))
 
 
+def extra_roots(home: Path) -> list[Path]:
+    """Additional project dirs to scan. The registry is global (one
+    ~/.blindfold/values.env), and discovery does not recurse, so a machine
+    with projects scattered across many directories needs its roots listed.
+    `BLINDFOLD_ROOTS` (os.pathsep-separated) wins; else ~/.blindfold/roots,
+    one path per line.
+    """
+    raw = os.environ.get("BLINDFOLD_ROOTS")
+    if raw:
+        return [Path(p).expanduser() for p in raw.split(os.pathsep) if p.strip()]
+    f = home / ".blindfold" / "roots"
+    if f.exists():
+        return [Path(line.strip()).expanduser() for line in f.read_text().splitlines()
+                if line.strip() and not line.startswith("#")]
+    return []
+
+
 def discover_values(home: Path) -> list[str]:
-    """Discover secrets under home + cwd, expand transforms, dedupe."""
+    """Discover secrets under home + cwd (+ extra roots), expand transforms, dedupe."""
     # A checkout is its own package root: REPO_ROOT.parent makes `blindfold.core`
     # importable without the Hermes plugin layout. Without it a fresh clone
     # discovers nothing and the hook registers an empty registry.
@@ -42,7 +59,7 @@ def discover_values(home: Path) -> list[str]:
     except ImportError:
         note("values", "FAILED", "blindfold package not importable")
         return []
-    roots = [home, Path.cwd()]
+    roots = [home, Path.cwd(), *extra_roots(home)]
     found = discover_all(roots)
     out: list[str] = []
     for v in found.values():

@@ -80,6 +80,12 @@ python3 blindfold_install.py zcode && python3 blindfold_install.py probe
 Re-run `python3 blindfold_install.py refresh-values` after adding new secrets to
 a `.env` — the registry is a snapshot, not a watcher.
 
+The registry is global (one `~/.blindfold/values.env`) and discovery does not
+recurse, so list every project directory that holds a `.env` in
+`~/.blindfold/roots` (one path per line), or pass `BLINDFOLD_ROOTS` as an
+`os.pathsep`-separated list. Without that, only `$HOME` and the current
+directory are scanned.
+
 ## How it works
 
 Registration beats pattern-matching for secrets you already know.

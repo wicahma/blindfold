@@ -75,6 +75,19 @@ merged = discover_all([tmp])
 check("env key present", "BLF_TEST_PROBE_TOKEN" in merged)
 check("dotenv key present", ".env:API_KEY" in merged)
 
+print("[7] multiple roots with same-named .env keep every secret")
+a, b = Path(tempfile.mkdtemp()), Path(tempfile.mkdtemp())
+(a / ".env").write_text(f"API_KEY={'a' * MIN_LEN}\nSHARED_SECRET={'1' * MIN_LEN}\n")
+(b / ".env").write_text(f"API_KEY={'b' * MIN_LEN}\nSHARED_SECRET={'2' * MIN_LEN}\n")
+multi = discover_dotenv([a, b])
+check("first root keeps plain label", multi.get(".env:API_KEY") == "a" * MIN_LEN, str(list(multi)))
+check("second root qualified, not dropped",
+      multi.get(f"{b.name}/.env:API_KEY") == "b" * MIN_LEN, str(list(multi)))
+check("both API_KEY values survive",
+      len({v for k, v in multi.items() if k.endswith(":API_KEY")}) == 2, str(list(multi)))
+check("single root labels unchanged",
+      discover_dotenv([a]) == {".env:API_KEY": "a" * MIN_LEN, ".env:SHARED_SECRET": "1" * MIN_LEN})
+
 del os.environ["BLF_TEST_PROBE_TOKEN"]
 print("\n" + ("ALL GREEN" if not FAIL else f"{len(FAIL)} FAILED: {FAIL}"))
 sys.exit(1 if FAIL else 0)

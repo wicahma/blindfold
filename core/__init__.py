@@ -91,7 +91,14 @@ def discover_dotenv(roots: list[Path], ignore_globs: list[str] | None = None) ->
                 key = key.strip().removeprefix("export ").strip()
                 val = val.strip().strip("\"'").strip()
                 if is_sensitive(key, val):
-                    out.setdefault(f"{path.name}:{key}", val)
+                    label = f"{path.name}:{key}"
+                    if label in out:
+                        # Same filename in another project: qualify with the
+                        # parent dir instead of dropping the value. Scanning
+                        # several roots where every project has a plain `.env`
+                        # would otherwise keep only the first project's keys.
+                        label = f"{path.parent.name}/{path.name}:{key}"
+                    out.setdefault(label, val)
     return out
 
 
